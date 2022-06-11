@@ -7,7 +7,7 @@ use App\Models\ImageManipulation;
 use App\Http\Requests\StoreImageManipulationRequest;
 use App\Http\Requests\UpdateImageManipulationRequest;
 
-class \ImageManipulationController extends Controller
+class ImageManipulationController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -25,7 +25,7 @@ class \ImageManipulationController extends Controller
      * @param  \App\Http\Requests\StoreImageManipulationRequest  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(StoreImageManipulationRequest $request)
+    public function resize(StoreImageManipulationRequest $request)
     {
         //
     }
