@@ -20,6 +20,14 @@ use App\Http\Controllers\V1\AlbumController;
 // });
 
 Route::prefix('v1')->group(function(){
-  Route::apiResource('album',AlbumController::class);
+  Route::apiResource('album',\App\Http\Controllers\V1\AlbumController::class);
+
+  Route::get('image',[\App\Http\Controllers\V1\ImageManipulationController::class,'index']);
+  Route::get('image/{image}',[\App\Http\Controllers\V1\ImageManipulationController::class,'show']);
+  Route::post('image/resize',[\App\Http\Controllers\V1\ImageManipulationController::class,'resize']);
+  Route::get('image/by-album/{album}',[\App\Http\Controllers\V1\ImageManipulationController::class,'byAlbum']);
+  Route::delete('image/{image}',[\App\Http\Controllers\V1\ImageManipulationController::class,'destroy']);
+
+
 
 });
