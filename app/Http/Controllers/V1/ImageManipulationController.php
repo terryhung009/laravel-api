@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\ImageManipulation;
-use App\Models\Album;
 use App\Http\Requests\ResizeImageRequest;
-use App\Http\Requests\UpdateImageManipulationRequest;
+use App\Http\Resources\V1\ImageManipulationResource;
+use App\Models\Album;
+use App\Models\ImageManipulation;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Intervention\Image\Facades\Image;
 
 class ImageManipulationController extends Controller
 {
@@ -36,7 +39,7 @@ class ImageManipulationController extends Controller
      */
     public function resize(ResizeImageRequest $request)
     {
-        $all= $request->all();
+        $all = $request->all();
 
         /** @Var UploadedFile|string $image
          * 
@@ -46,49 +49,71 @@ class ImageManipulationController extends Controller
          * 
          */
 
-        
+
         $image = $all['image'];
         unset($all['image']);
-        $date =[
+        $data = [
             'type' => ImageManipulation::TYPE_RESIZE,
             'data' => json_encode($all),
-            'user_id' => null
+            'user_id' => null,
         ];
 
-        if(isset($all['album_id'])){
+        if (isset($all['album_id'])) {
             //TODO
 
             $data['album_id'] = $all['album_id'];
         }
 
-        $dir = 'images/'. Str::random().'/';
+        $dir = 'images/' . Str::random() . '/';
         $absolutePath = public_path($dir);
         File::makeDirectory($absolutePath);
 
 
         //image/dash2324dsaf/test.jpg
         //image/dash2324dsaf/test-resized.jpg
-        if($image instanceof UploadedFile){
+        if ($image instanceof UploadedFile) {
             $data['name'] = $image->getClientOriginalName();
 
-            $filename = pathinfo($data['name'],PATHINFO_FILENAME);
+            $filename = pathinfo($data['name'], PATHINFO_FILENAME);
             $extension = $image->getClientOriginalExtension();
+            $originalPath = $absolutePath . $data['name'];
 
-            $image->move($absolutePath ,$data['name']);
-            $data['path']= $dir.$data['name'];
-
-        }else{
-            $data['name'] = pathinfo($image,PATHINFO_BASENAME);
-            $filename = pathinfo($image,PATHINFO_FILENAME);
-            $extension = pathinfo($image,PATHINFO_EXTENSION);
-
-            copy($image, $absolutePath.$data['name']);
+            $data['path'] = $dir . $data['name'];
+            $image->move($absolutePath, $data['name']);
             
+        } else {
+            $data['name'] = pathinfo($image, PATHINFO_BASENAME);
+            $filename = pathinfo($image, PATHINFO_FILENAME);
+            $extension = pathinfo($image, PATHINFO_EXTENSION);
+            $originalPath = $absolutePath . $data['name'];
 
+            // copy($image, $absolutePath.$data['name']);
+            copy($image, $originalPath);
+            $data['path'] = $dir . $data['name'];
         }
-        $data['path']= $dir.$data['name'];
+        
 
+        $w = $all['w'];
+        $h = $all['h'] ?? false;
 
+        list($image, $width, $height ) = $this->getImageWidthAndHeight($w, $h, $originalPath);
+
+        // echo '<pre>';
+        // var_dump($width,$height);
+        // echo '</pre>';
+        // exit;
+
+        $resizedFilename = $filename . '-resized.' . $extension;
+
+        $image-> resize($width, $height)->save($absolutePath . $resizedFilename);
+
+        $data['output_path'] = $dir . $resizedFilename;
+
+        $ImageManipulation =  ImageManipulation::create($data);
+
+        // dd($ImageManipulation);
+
+        return $ImageManipulation;
     }
 
     /**
@@ -123,5 +148,33 @@ class ImageManipulationController extends Controller
     public function destroy(ImageManipulation $imageManipulation)
     {
         //
+    }
+
+    protected function getImageWidthAndHeight($w, $h, string $originalPath)
+    {
+        $image =  Image::make($originalPath);
+        $originalWidth = $image->width();
+        $originalHeight = $image->height();
+
+        if (str_ends_with($w, '%')) {
+            $ratioW = (float)(str_replace('%', '', $w));
+            $ratioH = $h ? (float)(str_replace('%', '', $h)) : $ratioW;
+
+            $newWidth = $originalWidth * $ratioW / 100;
+            $newHeight = $originalHeight * $ratioW / 100;
+        } else {
+            $newWidth = (float)$w;
+            /**
+             * $originalWidth  -  $newWidth
+             * $originalHeight -  $newHeight
+             * -----------------------------
+             * $newHeight =  $originalHeight * $newWidth/$originalWidth
+             */
+
+            // $newHeight =  $originalHeight * $newWidth/$originalWidth;
+            $newHeight = $h ? (float)$h : ($originalHeight * $newWidth / $originalWidth);
+        }
+
+        return [$newWidth, $newHeight, $image];
     }
 }
